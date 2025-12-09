@@ -1,5 +1,5 @@
 import React from 'react';
-import { VideoItem, AnalysisStatus } from '../types';
+import { VideoItem, AnalysisStatus, VideoProcessingStatus } from '../types';
 import ReactMarkdown from 'react-markdown';
 
 interface VideoCardProps {
@@ -11,24 +11,31 @@ interface VideoCardProps {
 const VideoCard: React.FC<VideoCardProps> = ({ item, onRetry, onRemove }) => {
   const isAnalyzing = item.status === AnalysisStatus.ANALYZING || item.status === AnalysisStatus.PREPARING;
   const isError = item.status === AnalysisStatus.ERROR;
-  const isCompleted = item.status === AnalysisStatus.COMPLETED;
+  
+  // Video Processing Status
+  const isProcessingVideo = item.processingStatus === VideoProcessingStatus.PROCESSING;
+  const isVideoReady = item.processingStatus === VideoProcessingStatus.COMPLETED && item.processedVideoUrl;
+  
+  // Config helpers
+  const config = item.subtitleConfig;
+  const isAggressive = config?.mode === 'aggressive';
 
   return (
-    <div className="flex flex-col bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg transition-all hover:shadow-slate-700/20 hover:border-slate-600">
+    <div className="flex flex-col bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg transition-all hover:shadow-slate-700/20 hover:border-slate-600 group">
       {/* Video Preview Section */}
-      <div className="relative w-full aspect-video bg-black flex items-center justify-center group">
+      <div className="relative w-full aspect-video bg-black flex items-center justify-center">
         <video 
           src={item.previewUrl} 
           className="w-full h-full object-contain"
           controls
         />
         
-        {/* Overlay Status */}
+        {/* Overlay Status (Text Analysis) */}
         {isAnalyzing && (
           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center backdrop-blur-sm z-10 pointer-events-none">
             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
             <span className="text-xs font-semibold tracking-wider uppercase text-blue-400 animate-pulse">
-              {item.status === AnalysisStatus.PREPARING ? '文件读取中...' : 'AI 思考中...'}
+              {item.status === AnalysisStatus.PREPARING ? '文件读取中...' : 'AI 分析中...'}
             </span>
           </div>
         )}
@@ -46,24 +53,24 @@ const VideoCard: React.FC<VideoCardProps> = ({ item, onRetry, onRemove }) => {
       </div>
 
       {/* Content Section */}
-      <div className="p-5 flex-1 flex flex-col border-t border-slate-700">
+      <div className="p-4 flex-1 flex flex-col border-t border-slate-700">
         {/* Title / Metadata */}
         <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-blue-400">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                     <path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813a3.75 3.75 0 0 0 2.576-2.576l.813-2.846A.75.75 0 0 1 9 4.5ZM9 15.75a.75.75 0 0 1 .721.544l.178.622a2.25 2.25 0 0 0 1.65 1.65l.622.178a.75.75 0 0 1 0 1.442l-.622.178a2.25 2.25 0 0 0-1.65 1.65l-.178.622a.75.75 0 0 1-1.442 0l-.178-.622a2.25 2.25 0 0 0-1.65 1.65l-.622-.178a.75.75 0 0 1 0-1.442l.622-.178a2.25 2.25 0 0 0 1.65-1.65l.178-.622a.75.75 0 0 1 .721-.544Z" clipRule="evenodd" />
                 </svg>
-                <span className="text-sm font-semibold tracking-wide">AI 文案生成</span>
+                <span className="text-xs font-semibold tracking-wide">AI 文案</span>
             </div>
             
             {/* File Info */}
-            <span className="text-xs text-slate-500 truncate max-w-[150px]" title={item.file.name}>
+            <span className="text-xs text-slate-500 truncate max-w-[120px]" title={item.file.name}>
                 {item.file.name}
             </span>
         </div>
 
         {/* Output Text Area */}
-        <div className="flex-1 min-h-[120px] text-sm text-slate-300 leading-relaxed bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
+        <div className="flex-1 min-h-[140px] text-sm text-slate-300 leading-relaxed bg-slate-900/50 rounded-lg p-3 border border-slate-700/50 mb-4 overflow-y-auto max-h-[200px]">
            {item.resultText ? (
              <div className="prose prose-invert prose-sm max-w-none">
                  <ReactMarkdown>{item.resultText}</ReactMarkdown>
@@ -75,9 +82,41 @@ const VideoCard: React.FC<VideoCardProps> = ({ item, onRetry, onRemove }) => {
              </div>
            ) : (
              <div className="flex items-center justify-center h-full text-slate-600 italic">
-                等待分析中...
+                {isAnalyzing ? '正在创作文案...' : '等待开始...'}
              </div>
            )}
+        </div>
+
+        {/* Download Section (Updated) */}
+        <div className="pt-3 border-t border-slate-700/50">
+            {isProcessingVideo ? (
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-center gap-2 p-2 bg-slate-900 rounded-lg border border-slate-700 border-dashed">
+                        <div className={`w-4 h-4 border-2 border-t-transparent rounded-full animate-spin ${isAggressive ? 'border-orange-500' : 'border-emerald-500'}`}></div>
+                        <span className={`text-xs ${isAggressive ? 'text-orange-400' : 'text-emerald-400'}`}>
+                            {isAggressive ? '深度强力擦除中...' : '智能填补中...'}
+                        </span>
+                    </div>
+                    {isAggressive && <span className="text-[10px] text-center text-slate-500">正在全帧扫描字幕区域</span>}
+                </div>
+            ) : isVideoReady ? (
+                <div className="space-y-1">
+                    <a 
+                        href={item.processedVideoUrl} 
+                        download={`clean_${isAggressive ? 'pro_' : ''}${item.file.name}`}
+                        className={`flex items-center justify-center gap-2 w-full p-2 text-white rounded-lg transition-colors text-xs font-medium shadow-lg ${isAggressive ? 'bg-orange-600 hover:bg-orange-500 shadow-orange-500/20' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20'}`}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+                        </svg>
+                        {isAggressive ? '下载无字幕视频 (PRO)' : '下载无字幕视频'}
+                    </a>
+                </div>
+            ) : (
+                <div className="text-center p-2 text-xs text-slate-600">
+                    无需处理视频
+                </div>
+            )}
         </div>
       </div>
     </div>
