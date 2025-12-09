@@ -1,0 +1,5 @@
+{
+  "name": "视频文案大师",
+  "description": "一个智能视频分析工具，使用 Gemini 2.5 自动为您上传的视频生成引人入胜的文案。",
+  "requestFramePermissions": []
+}
